@@ -1,10 +1,10 @@
-# NMG Schweiz Lernapp
+# NMG Schweiz – Geografie & Geschichte
 
-Open `index.html` locally or upload all files in this folder to GitHub Pages.
+GitHub Pages package. Upload all files in this folder to the repository root.
 
-Files:
-- `index.html` – landing page
-- `geography.html` – Geography app
-- `history.html` – History app
+- `index.html` – combined landing page with direct test links
+- `geography.html` – Geography tests and info
+- `history.html` – History tests and info
+- `.nojekyll` – optional GitHub Pages helper
 
-All maps/images used by the apps are embedded in the HTML files.
+Sounds are generated in the browser; no audio files are required. The sound on/off choice is stored on the device.
