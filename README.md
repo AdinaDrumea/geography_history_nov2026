@@ -1,10 +1,13 @@
-# NMG Schweiz – Geografie & Geschichte
+# NMG Schweiz - Geografie & Geschichte
 
-GitHub Pages package. Upload all files in this folder to the repository root.
+GitHub Pages package.
 
-- `index.html` – combined landing page with direct test links
-- `geography.html` – Geography tests and info
-- `history.html` – History tests and info
-- `.nojekyll` – optional GitHub Pages helper
+Upload these files to the repository root:
+- `index.html`
+- `geography.html`
+- `history.html`
+- `.nojekyll`
 
-Sounds are generated in the browser; no audio files are required. The sound on/off choice is stored on the device.
+`README.md` is optional.
+
+Latest map refinements include a larger Liechtenstein tap target, improved Europe labelling, and an easy mountain-dot practice mode.
