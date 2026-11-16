@@ -127,13 +127,17 @@ const modes={
  ['languages-recall','4 Landessprachen schreiben','Nenne alle vier offiziellen Landessprachen.'],['language-map','Sprache → Region','Finde ungefähr, wo die Sprache gesprochen wird.'],['language-shape','Region → Sprache','Eine Sprachregion leuchtet. Wähle die Sprache.'],['landscapes-recall','3 Grosslandschaften schreiben','Nenne Jura, Mittelland und Alpen.'],['landscape-map','Grosslandschaft → Satellitenkarte','Finde die Grosslandschaft ungefähr auf der neuen Satellitenkarte.'],['landscape-shape','Satellitenkarte → Grosslandschaft','Eine Grosslandschaft ist markiert. Wähle ihren Namen.']
  ]
 };
+const GEO_SCORE_PREFIX='nmgGeoScore:v2:';
+function geoScoreKey(cat,mode,scope){return `${GEO_SCORE_PREFIX}${cat}:${mode}:${scope}`}
+function saveGeoScore(cat,mode,scope,correct,answered){const pct=answered?Math.round(100*correct/answered):0;try{const key=geoScoreKey(cat,mode,scope),prev=JSON.parse(localStorage.getItem(key)||'null')||{};localStorage.setItem(key,JSON.stringify({last:pct,best:Math.max(prev.best||0,pct),correct,answered,at:Date.now()}))}catch(_){ }return pct}
+function geoScoreText(cat,mode,scope){try{const x=JSON.parse(localStorage.getItem(geoScoreKey(cat,mode,scope))||'null');return x?`Letztes Ergebnis · ${x.last}%`:'Neue Runde · 0 %'}catch(_){return 'Neue Runde · 0 %'}}
 function modeCards(cat,scope){let list=modes[cat];
  if(cat==='mountains'&&scope==='required')list=list.filter(x=>x[0]!=='mount-easy-loc');
  if(scope==='basic'){
    const keep={cantons:['map-choice','map-type','name-map'],water:['lake-map-choice','lake-map-type','lake-name-map','river-map-choice','river-map-type','river-name-map'],mountains:['mount-map-choice','mount-map-type','mount-name-map']};
    if(keep[cat])list=list.filter(x=>keep[cat].includes(x[0]));
  }
- return list.map(([id,t,d])=>`<button class="modecard" data-mode="${id}" data-scope="${scope}"><span class="tag">Neue Runde · 0 %</span><h3>${t}</h3><p>${d}</p></button>`).join('')}
+ return list.map(([id,t,d])=>`<button class="modecard" data-mode="${id}" data-scope="${scope}"><span class="tag">${geoScoreText(cat,id,scope)}</span><h3>${t}</h3><p>${d}</p></button>`).join('')}
 function modeSelect(cat,scope='all'){session=null;let c=categories[cat];let label='',scopeText='';
  if(scope==='basic'){label='Grundanforderungen';scopeText='Kartenwissen und Orientierung';}
  else if(scope==='required'){label='Erweiterte Anforderungen';scopeText=cat==='water'?'7 Seen · 6 Flüsse · Lernzielliste':'6 Berge · Lernzielliste';}
@@ -146,20 +150,20 @@ function modeSelect(cat,scope='all'){session=null;let c=categories[cat];let labe
 function matchesRequired(x,list){return list.some(r=>norm(r)===norm(x.name)||(x.aliases||[]).some(a=>norm(a)===norm(r)))}
 function waterPool(kind,scope='all'){let p=kind==='lake'?DATA.water.lakes:DATA.water.rivers;if(scope!=='required')return p;return p.filter(x=>matchesRequired(x,kind==='lake'?DATA.required.lakes:DATA.required.rivers))}
 function mountainPool(scope='all'){return scope==='required'?DATA.mountains.filter(x=>DATA.required.mountains.includes(x.name)):DATA.mountains}
-function startTest(cat,mode,scope='all'){let items=[];
+function startTest(cat,mode,scope='all',retryItems=null){let items=[];
  if(cat==='places')items=shuffle(PLACES);
  else if(cat==='cantons')items=shuffle(DATA.cantons);
  else if(cat==='water')items=shuffle(waterPool(mode.startsWith('lake')?'lake':'river',scope));
  else if(cat==='mountains')items=shuffle(mountainPool(scope));
  else if(cat==='europe'){if(mode==='neighbors-recall'||mode==='country-fill')items=[{id:'one'}];else items=shuffle(['Schweiz','Frankreich','Deutschland','Österreich','Liechtenstein','Italien']);}
  else if(cat==='regions'){if(mode==='languages-recall'||mode==='landscapes-recall')items=[{id:'one'}];else if(mode.startsWith('language'))items=shuffle(['Deutsch','Französisch','Italienisch','Rätoromanisch']);else items=shuffle(['Jura','Mittelland','Alpen']);}
- session={cat,mode,scope,items,index:0,correct:0,answered:0,locked:false,pending:null};renderQuestion();}
+ if(retryItems&&retryItems.length)items=shuffle(retryItems);session={cat,mode,scope,items,index:0,correct:0,answered:0,locked:false,pending:null,mistakes:[]};renderQuestion();}
 function scoreHTML(){let pct=session.answered?Math.round(100*session.correct/session.answered):0;return `<div class="scorebar"><span class="scorepill">${session.correct} richtig</span><span class="scorepill">${session.answered} beantwortet</span><span class="scorepill">${pct}%</span><span class="scorepill">Frage ${Math.min(session.index+1,session.items.length)} / ${session.items.length}</span></div>`}
 function qTag(){let m=modes[session.cat].find(x=>x[0]===session.mode),p=session.scope==='basic'?'Grundanforderung · ':session.scope==='required'?'Erweiterte Anforderung · ':(session.cat==='cantons'&&session.scope==='all')?'Erweiterte Anforderung · ':'';return p+(m?m[1]:'')}
-function finish(ok,msg){if(session.locked)return;session.locked=true;session.answered++;if(ok)session.correct++;nmgResult(ok);let f=$('#feedback');if(f){f.className='feedback '+(ok?'good':'bad');f.innerHTML=msg}let n=$('#nextBtn');if(n)n.classList.remove('hidden');disableInputs();}
+function finish(ok,msg){if(session.locked)return;session.locked=true;session.answered++;if(ok)session.correct++;else session.mistakes.push(session.items[session.index]);nmgResult(ok);let f=$('#feedback');if(f){f.className='feedback '+(ok?'good':'bad');f.innerHTML=msg}let n=$('#nextBtn');if(n)n.classList.remove('hidden');disableInputs();}
 function disableInputs(){$$('button.option,button.crestOption,button.easyMarker,#checkBtn,#confirmMap,input.answer,.freeRecall input').forEach(x=>x.disabled=true)}
 function next(){session.index++;session.pending=null;session.locked=false;if(session.index>=session.items.length)renderEnd();else renderQuestion();}
-function renderEnd(){let pct=session.answered?Math.round(100*session.correct/session.answered):0,cat=session.cat,mode=session.mode,scope=session.scope;$('#app').innerHTML=`<div class="quizwrap"><div class="qcard end"><div class="eyebrow">Runde beendet</div><div class="big">${pct}%</div><h2>${session.correct} von ${session.answered} richtig</h2><div class="endnav"><button class="btn" id="again">Noch einmal</button><button class="btn secondary" id="backModes">← ${categories[cat].title}-Testarten</button><button class="btn secondary" id="backTestsEnd">← Alle Tests</button></div></div></div>`;$('#again').onclick=()=>startTest(cat,mode,scope);$('#backModes').onclick=()=>modeSelect(cat,scope);$('#backTestsEnd').onclick=tests;}
+function renderEnd(){let pct=session.answered?Math.round(100*session.correct/session.answered):0,cat=session.cat,mode=session.mode,scope=session.scope,mistakes=[...(session.mistakes||[])];saveGeoScore(cat,mode,scope,session.correct,session.answered);$('#app').innerHTML=`<div class="quizwrap"><div class="qcard end"><div class="eyebrow">Runde beendet</div><div class="big">${pct}%</div><h2>${session.correct} von ${session.answered} richtig</h2><p class="smallnote">Ergebnis im Browser gespeichert.</p><div class="endnav">${mistakes.length?`<button class="btn" id="retryMistakes">Fehler wiederholen (${mistakes.length})</button>`:''}<button class="btn" id="again">Noch einmal</button><button class="btn secondary" id="backModes">← ${categories[cat].title}-Testarten</button><button class="btn secondary" id="backTestsEnd">← Alle Tests</button></div></div></div>`;if($('#retryMistakes'))$('#retryMistakes').onclick=()=>startTest(cat,mode,scope,mistakes);$('#again').onclick=()=>startTest(cat,mode,scope);$('#backModes').onclick=()=>modeSelect(cat,scope);$('#backTestsEnd').onclick=tests;}
 function baseQuestion(inner){$('#app').innerHTML=`<div class="quizwrap"><button class="back" id="backModes">← ${categories[session.cat].title}-Tests</button>${scoreHTML()}<div class="qcard"><span class="qtag">${qTag()}</span>${inner}<div id="feedback"></div><div class="btnrow"><button class="btn hidden" id="nextBtn">Nächste Frage</button></div></div></div>`;$('#backModes').onclick=()=>modeSelect(session.cat,session.scope);$('#nextBtn').onclick=next;}
 
 function placeMap(){let paths=DATA.cantonDrawOrder.map(a=>`<path class="cantonPath" d="${DATA.cantonShapes[a].path}"></path>`).join('');return `<div class="mapCard"><svg id="placeSvg" class="placeSvg" viewBox="0 0 925 530" aria-label="Schweizkarte"><g>${paths}</g><g id="placeOverlay"></g></svg><p class="maphint">Tippe ungefähr auf die Stelle. Danach bestätigen.</p></div>`}

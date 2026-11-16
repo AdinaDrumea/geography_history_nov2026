@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schweizer Geschichte Lern-App · NMG 5./6. Klasse</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            swissred: '#D52B1E',
+            swissredDark: '#B32015',
+            cream: '#FAF9F6',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #FAF9F6;
+      color: #1E293B;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 3D Flashcard Flip Animation */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .flip-card-inner.is-flipped {
+      transform: rotateY(180deg);
+    }
+    .flip-card-front,
+    .flip-card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 1.25rem;
+    }
+    .flip-card-back {
+      transform: rotateY(180deg);
+    }
+
+    /* Cloze / Lückentext Blur Effect */
+    .cloze-word {
+      display: inline-block;
+      background-color: #E2E8F0;
+      color: transparent;
+      text-shadow: 0 0 8px rgba(30, 41, 59, 0.65);
+      border-radius: 0.375rem;
+      padding: 0 0.35rem;
+      margin: 0 0.1rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      border-bottom: 2px dashed #94A3B8;
+    }
+    .cloze-word:hover {
+      background-color: #CBD5E1;
+    }
+    .cloze-word.revealed {
+      background-color: #FEF3C7;
+      color: #92400E;
+      text-shadow: none;
+      border-bottom: 2px solid #F59E0B;
+    }
+
+    /* Shake animation for wrong quiz answer */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+    .animate-shake {
+      animation: shake 0.35s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-red-100 selection:text-swissred">
+
+  <!-- ==================== HEADER & PROGRESS ==================== -->
+  <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <!-- Brand / Title -->
+        <div class="flex items-center gap-3">
+          <a href="index.html#history" class="text-sm font-bold text-slate-500 hover:text-swissred shrink-0">← NMG</a>
+          <div class="w-10 h-10 rounded-xl bg-swissred flex items-center justify-center text-white shadow-sm shrink-0" aria-hidden="true">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6V4z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 leading-tight">
+              Schweizer Geschichte
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 font-medium">
+              NMG Lern-App · 20 wichtige Merksätze (5./6. Klasse)
+            </p>
+          </div>
+        </div>
+
+        <!-- Mastery Progress -->
+        <div class="flex items-center gap-3 bg-stone-50 border border-stone-200/80 px-3.5 py-2 rounded-xl">
+          <div class="flex-1 sm:w-44">
+            <div class="flex justify-between items-center text-xs font-semibold mb-1">
+              <span class="text-slate-600">Lernfortschritt</span>
+              <span id="progress-text" class="text-swissred font-bold">0 / 20 gelernt</span>
+            </div>
+            <div class="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden">
+              <div id="progress-bar" class="h-full bg-swissred rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+          <button
+            id="btn-reset-progress"
+            type="button"
+            title="Fortschritt zurücksetzen"
+            class="p-2 text-slate-400 hover:text-swissred hover:bg-red-50 rounded-lg transition-colors"
+            aria-label="Fortschritt zurücksetzen"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex gap-1.5 sm:gap-2 mt-3.5 pt-2.5 border-t border-stone-100 overflow-x-auto" aria-label="Lernmodi">
+        <button
+          data-tab="overview"
+          class="tab-btn flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all bg-swissred text-white shadow-sm"
+        >
+          <span>📖</span>
+          <span>Lernübersicht</span>
+        </button>
+        <button
+          data-tab="flashcards"
+          class="tab-btn flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all text-slate-600 hover:bg-stone-100"
+        >
+          <span>🃏</span>
+          <span>Lernkarten</span>
+        </button>
+        <button
+          data-tab="quiz"
+          class="tab-btn flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all text-slate-600 hover:bg-stone-100"
+        >
+          <span>🎯</span>
+          <span>Epochen-Quiz</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- MODE 1: LERNÜBERSICHT -->
+    <section id="view-overview" class="space-y-6">
+      <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Epoch Filter Pills -->
+        <div class="flex flex-wrap gap-1.5" role="group" aria-label="Epoche filtern">
+          <button data-filter="Alle" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 text-white transition-all">
+            Alle (20)
+          </button>
+          <button data-filter="Steinzeit" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-all">
+            🪨 Steinzeit
+          </button>
+          <button data-filter="Römerzeit" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 transition-all">
+            🏛️ Römerzeit
+          </button>
+          <button data-filter="Mittelalter" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100 transition-all">
+            🏰 Mittelalter
+          </button>
+          <button data-filter="Neuzeit" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-all">
+            🚂 Neuzeit
+          </button>
+        </div>
+
+        <!-- Cloze Toggle -->
+        <div class="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100">
+          <div class="text-right">
+            <span class="text-sm font-semibold text-slate-800 block">Lückentext-Modus</span>
+            <span class="text-xs text-slate-500">Schlüsselwörter verdecken</span>
+          </div>
+          <button
+            id="toggle-cloze"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            class="relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-stone-300 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-swissred"
+          >
+            <span
+              id="toggle-cloze-knob"
+              class="pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0"
+            ></span>
+          </button>
+        </div>
+      </div>
+
+      <div id="cloze-hint" class="hidden bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-sm flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-lg">💡</span>
+          <span><strong>Lückentext aktiv:</strong> Tippe auf die grauen Lücken, um Begriffe aufzudecken!</span>
+        </div>
+        <button id="btn-reveal-all-cloze" class="text-xs font-bold underline hover:text-amber-700 shrink-0">
+          Alle aufdecken
+        </button>
+      </div>
+
+      <div id="overview-container" class="space-y-8"></div>
+    </section>
+
+    <!-- MODE 2: LERNKARTEN -->
+    <section id="view-flashcards" class="hidden max-w-2xl mx-auto space-y-6">
+      <div class="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <label for="fc-epoch-select" class="text-sm font-semibold text-slate-700">Epoche:</label>
+          <select id="fc-epoch-select" class="bg-stone-50 border border-stone-200 text-slate-800 text-sm font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-swissred">
+            <option value="Alle">Alle Epochen (20)</option>
+            <option value="Steinzeit">🪨 Steinzeit (5)</option>
+            <option value="Römerzeit">🏛️ Römerzeit (5)</option>
+            <option value="Mittelalter">🏰 Mittelalter (5)</option>
+            <option value="Neuzeit">🚂 Neuzeit (5)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span id="fc-counter" class="text-sm font-bold text-slate-600 bg-stone-100 px-3 py-1.5 rounded-xl">
+            Karte 1 / 20
+          </span>
+          <button
+            id="fc-shuffle"
+            type="button"
+            class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold bg-stone-100 hover:bg-stone-200 text-slate-700 transition-colors"
+          >
+            <span>🔀</span>
+            <span>Mischen</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="perspective-1000 w-full h-80 sm:h-96 cursor-pointer" id="flashcard-wrapper" tabindex="0" role="button" aria-label="Lernkarte umdrehen">
+        <div id="flashcard-inner" class="flip-card-inner shadow-md rounded-2xl">
+          <!-- Front -->
+          <div class="flip-card-front bg-white border-2 border-stone-200 p-6 sm:p-10 flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span id="fc-front-badge" class="px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-amber-100 text-amber-800">
+                🪨 Steinzeit · Fakt 1
+              </span>
+              <span id="fc-mastered-pill" class="hidden px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                ✓ Gelernt
+              </span>
+            </div>
+
+            <div class="text-center my-auto px-2">
+              <p class="text-xs uppercase tracking-wider font-bold text-slate-400 mb-2">Denkimpuls / Stichwort</p>
+              <h2 id="fc-front-prompt" class="text-xl sm:text-2xl font-bold text-slate-800 leading-snug">
+                ...
+              </h2>
+            </div>
+
+            <div class="text-center text-xs sm:text-sm text-slate-400 font-medium">
+              <span>👆 Tippen oder Leertaste zum Umdrehen</span>
+            </div>
+          </div>
+
+          <!-- Back -->
+          <div class="flip-card-back bg-slate-900 text-white p-6 sm:p-10 flex flex-col justify-between border-2 border-slate-800">
+            <div class="flex items-center justify-between">
+              <span id="fc-back-badge" class="px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-white/15 text-white">
+                Merksatz
+              </span>
+              <span class="text-xs text-slate-400 font-medium">Antwort</span>
+            </div>
+
+            <div class="text-center my-auto px-2">
+              <p id="fc-back-sentence" class="text-lg sm:text-2xl font-semibold leading-relaxed text-white">
+                ...
+              </p>
+            </div>
+
+            <div class="text-center text-xs text-slate-400">
+              <span>Bewerte unten, ob du diesen Satz schon kannst 👇</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <button
+          id="fc-prev"
+          type="button"
+          class="order-3 sm:order-1 px-4 py-3 rounded-xl font-semibold text-sm bg-white border border-stone-200 text-slate-700 hover:bg-stone-50 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <span>←</span>
+          <span>Zurück</span>
+        </button>
+
+        <button
+          id="fc-practice"
+          type="button"
+          class="order-1 sm:order-2 px-4 py-3 rounded-xl font-semibold text-sm bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <span>🔄</span>
+          <span>Noch üben</span>
+        </button>
+
+        <button
+          id="fc-know"
+          type="button"
+          class="order-2 sm:order-3 px-4 py-3 rounded-xl font-semibold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors flex items-center justify-center gap-1.5"
+        >
+          <span>✓</span>
+          <span>Kann ich!</span>
+        </button>
+
+        <button
+          id="fc-next"
+          type="button"
+          class="order-4 px-4 py-3 rounded-xl font-semibold text-sm bg-white border border-stone-200 text-slate-700 hover:bg-stone-50 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <span>Weiter</span>
+          <span>→</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- MODE 3: QUIZ -->
+    <section id="view-quiz" class="hidden max-w-2xl mx-auto">
+      <div id="quiz-active-panel" class="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 sm:p-8 space-y-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-stone-100">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold text-slate-800 bg-stone-100 px-3 py-1.5 rounded-xl" id="quiz-progress">
+              Frage 1 von 20
+            </span>
+            <span class="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl" id="quiz-score">
+              Punkte: 0
+            </span>
+            <span class="text-sm font-bold text-slate-600 bg-stone-100 px-3 py-1.5 rounded-xl" id="quiz-last-score">Letztes Ergebnis: –</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
+            <span>🔥</span>
+            <span id="quiz-streak">Serie: 0</span>
+          </div>
+        </div>
+
+        <div class="space-y-2 text-center py-2">
+          <p class="text-xs uppercase tracking-wider font-bold text-slate-400">
+            Zu welcher Epoche gehört dieser Merksatz?
+          </p>
+          <div class="bg-cream border border-stone-200 rounded-2xl p-5 sm:p-6">
+            <p id="quiz-question-text" class="text-lg sm:text-xl font-bold text-slate-800 leading-relaxed">
+              ...
+            </p>
+          </div>
+        </div>
+
+        <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button data-choice="Steinzeit" class="quiz-choice-btn p-4 rounded-xl border-2 border-stone-200 hover:border-amber-400 hover:bg-amber-50/60 text-left font-bold text-slate-800 transition-all flex items-center gap-3">
+            <span class="text-2xl">🪨</span>
+            <div>
+              <div class="text-base">Steinzeit</div>
+              <div class="text-xs font-normal text-slate-500">Alt-, Mittel- & Jungsteinzeit</div>
+            </div>
+          </button>
+
+          <button data-choice="Römerzeit" class="quiz-choice-btn p-4 rounded-xl border-2 border-stone-200 hover:border-rose-400 hover:bg-rose-50/60 text-left font-bold text-slate-800 transition-all flex items-center gap-3">
+            <span class="text-2xl">🏛️</span>
+            <div>
+              <div class="text-base">Römerzeit</div>
+              <div class="text-xs font-normal text-slate-500">2. Jh. v. Chr. – 5. Jh. n. Chr.</div>
+            </div>
+          </button>
+
+          <button data-choice="Mittelalter" class="quiz-choice-btn p-4 rounded-xl border-2 border-stone-200 hover:border-indigo-400 hover:bg-indigo-50/60 text-left font-bold text-slate-800 transition-all flex items-center gap-3">
+            <span class="text-2xl">🏰</span>
+            <div>
+              <div class="text-base">Mittelalter</div>
+              <div class="text-xs font-normal text-slate-500">ca. 450 – 1500</div>
+            </div>
+          </button>
+
+          <button data-choice="Neuzeit" class="quiz-choice-btn p-4 rounded-xl border-2 border-stone-200 hover:border-emerald-400 hover:bg-emerald-50/60 text-left font-bold text-slate-800 transition-all flex items-center gap-3">
+            <span class="text-2xl">🚂</span>
+            <div>
+              <div class="text-base">Neuzeit</div>
+              <div class="text-xs font-normal text-slate-500">ab um 1500 bis heute</div>
+            </div>
+          </button>
+        </div>
+
+        <div id="quiz-feedback" class="hidden rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 text-sm font-semibold" id="quiz-feedback-text"></div>
+          <button
+            id="quiz-next-btn"
+            type="button"
+            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold transition-colors shrink-0"
+          >
+            Nächste Frage →
+          </button>
+        </div>
+      </div>
+
+      <div id="quiz-result-panel" class="hidden bg-white rounded-2xl border border-stone-200 shadow-sm p-8 text-center space-y-6">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-red-50 text-swissred flex items-center justify-center text-3xl">
+          🏆
+        </div>
+        <div class="space-y-2">
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Quiz abgeschlossen!</h2>
+          <p id="quiz-final-message" class="text-slate-600 text-base">Super gemacht!</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto">
+          <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Richtige Antworten</div>
+            <div id="quiz-final-score" class="text-2xl font-extrabold text-swissred mt-1">0 / 20</div>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Beste Serie</div>
+            <div id="quiz-final-streak" class="text-2xl font-extrabold text-amber-600 mt-1">0 🔥</div>
+          </div>
+          <div class="bg-stone-50 border border-stone-200 rounded-2xl p-4">
+            <div class="text-xs font-bold uppercase text-slate-400">Trefferquote</div>
+            <div id="quiz-final-percent" class="text-2xl font-extrabold text-emerald-700 mt-1">0%</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-3">
+        <button id="quiz-retry-mistakes-btn" type="button" class="hidden px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-sm transition-colors">🔁 Fehler wiederholen</button>
+        <button
+          id="quiz-restart-btn"
+          type="button"
+          class="px-6 py-3.5 rounded-xl bg-swissred hover:bg-swissredDark text-white font-bold text-sm shadow-sm transition-colors"
+        >
+          🔄 Nochmal spielen
+        </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- RESET MODAL -->
+  <div id="reset-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-stone-200 space-y-4">
+      <h3 class="text-lg font-extrabold text-slate-900">Fortschritt zurücksetzen?</h3>
+      <p class="text-sm text-slate-600">
+        Möchtest du wirklich alle Häkchen („Gelernt!“) löschen und wieder bei 0 von 20 starten?
+      </p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="modal-cancel" type="button" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-stone-100">
+          Abbrechen
+        </button>
+        <button id="modal-confirm" type="button" class="px-4 py-2 rounded-xl text-sm font-bold bg-swissred hover:bg-swissredDark text-white">
+          Ja, zurücksetzen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-stone-200 bg-white mt-12">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <span>🇨🇭 Schweizer Geschichte · NMG Prüfungsvorbereitung</span>
+      <span>Alle Lernstände werden automatisch im Browser gespeichert.</span>
+    </div>
+  </footer>
+
+  <!-- SCRIPT -->
+  <script>
+    /**
+     * Exact 20 curated facts for 5th/6th grade history exam
+     */
+    const FACTS_DATA = [
+      // 1. STEINZEIT
+      {
+        id: 1,
+        epoch: 'Steinzeit',
+        number: 1,
+        prompt: 'Lebensweise in der Altsteinzeit?',
+        text: 'In der Altsteinzeit waren die Menschen noch nicht sesshaft und lebten als Jäger, Sammler und Fischer.',
+        keywords: ['Altsteinzeit', 'nicht sesshaft', 'Jäger, Sammler und Fischer']
+      },
+      {
+        id: 2,
+        epoch: 'Steinzeit',
+        number: 2,
+        prompt: 'Wichtiges Werkzeug in der Altsteinzeit?',
+        text: 'Ein wichtiges Werkzeug war der beidseitig bearbeitete Faustkeil aus Feuerstein.',
+        keywords: ['beidseitig bearbeitete', 'Faustkeil', 'Feuerstein']
+      },
+      {
+        id: 3,
+        epoch: 'Steinzeit',
+        number: 3,
+        prompt: 'Jagd im Wald in der Mittelsteinzeit?',
+        text: 'Mit dem wärmeren Klima nach der Eiszeit wurden Pfeil und Bogen für die Jagd im Wald wichtig.',
+        keywords: ['wärmeren Klima', 'Eiszeit', 'Pfeil und Bogen']
+      },
+      {
+        id: 4,
+        epoch: 'Steinzeit',
+        number: 4,
+        prompt: 'Veränderung ab der Jungsteinzeit?',
+        text: 'Mit dem Beginn der Jungsteinzeit wurden die Menschen nach und nach sesshaft und betrieben Ackerbau und Viehzucht.',
+        keywords: ['Jungsteinzeit', 'sesshaft', 'Ackerbau und Viehzucht']
+      },
+      {
+        id: 5,
+        epoch: 'Steinzeit',
+        number: 5,
+        prompt: 'Besondere Häuser an Seeufern?',
+        text: 'In der Jungsteinzeit bauten die Menschen an Seeufern und in Mooren Holzhäuser auf Pfählen, die man Pfahlbauten nennt.',
+        keywords: ['Seeufern', 'Holzhäuser auf Pfählen', 'Pfahlbauten']
+      },
+
+      // 2. RÖMERZEIT
+      {
+        id: 6,
+        epoch: 'Römerzeit',
+        number: 1,
+        prompt: 'Beginn der Römischen Herrschaft in der Schweiz?',
+        text: 'Die Römer besetzten ab dem 2. Jahrhundert v. Chr. Teile der heutigen Schweiz.',
+        keywords: ['2. Jahrhundert v. Chr.']
+      },
+      {
+        id: 7,
+        epoch: 'Römerzeit',
+        number: 2,
+        prompt: 'Militärposten und Legionslager in Vindonissa?',
+        text: 'In Vindonissa entstand um 15 v. Chr. ein Militärposten, der zum Legionslager mit bis zu 6000 Soldaten ausgebaut wurde.',
+        keywords: ['Vindonissa', '15 v. Chr.', 'Legionslager', '6000 Soldaten']
+      },
+      {
+        id: 8,
+        epoch: 'Römerzeit',
+        number: 3,
+        prompt: 'Zweck der Römerstrassen?',
+        text: 'Gut ausgebaute Strassen ermöglichten schnelle Truppenbewegungen und Warentransporte.',
+        keywords: ['Strassen', 'Truppenbewegungen', 'Warentransporte']
+      },
+      {
+        id: 9,
+        epoch: 'Römerzeit',
+        number: 4,
+        prompt: 'Römische Errungenschaften und Bauten?',
+        text: 'Die Römer bauten Steinbauten, öffentliche Anlagen, Bäder sowie Wasser- und Abwasserleitungen.',
+        keywords: ['Steinbauten', 'Bäder', 'Wasser- und Abwasserleitungen']
+      },
+      {
+        id: 10,
+        epoch: 'Römerzeit',
+        number: 5,
+        prompt: 'Welche Sprache brachten die Römer mit?',
+        text: 'Die Römer sprachen und schrieben Latein.',
+        keywords: ['Latein']
+      },
+
+      // 3. MITTELALTER
+      {
+        id: 11,
+        epoch: 'Mittelalter',
+        number: 1,
+        prompt: 'Religiöse Zentren im Frühmittelalter?',
+        text: 'Im Frühmittelalter wurden viele Klöster und Kirchen gebaut, wie das Kloster St. Gallen um 612.',
+        keywords: ['Frühmittelalter', 'Klöster und Kirchen', 'Kloster St. Gallen', '612']
+      },
+      {
+        id: 12,
+        epoch: 'Mittelalter',
+        number: 2,
+        prompt: 'Wohn- und Wehrbauten im Hochmittelalter?',
+        text: 'Im Hochmittelalter wurden viele Burgen gebaut, auf denen Adelige für Könige und Kaiser lebten.',
+        keywords: ['Hochmittelalter', 'Burgen', 'Adelige', 'Könige und Kaiser']
+      },
+      {
+        id: 13,
+        epoch: 'Mittelalter',
+        number: 3,
+        prompt: 'Das Bündnis im Jahr 1291?',
+        text: '1291 erneuerten Uri, Schwyz und Unterwalden ein Bündnis und versprachen sich gegenseitige Hilfe.',
+        keywords: ['1291', 'Uri, Schwyz und Unterwalden', 'Bündnis', 'gegenseitige Hilfe']
+      },
+      {
+        id: 14,
+        epoch: 'Mittelalter',
+        number: 4,
+        prompt: 'Entstehung der Alten Eidgenossenschaft?',
+        text: 'Aus einem Netz von Bündnissen entwickelte sich später die Alte Eidgenossenschaft, die auf 13 Orte anwuchs.',
+        keywords: ['Netz von Bündnissen', 'Alte Eidgenossenschaft', '13 Orte']
+      },
+      {
+        id: 15,
+        epoch: 'Mittelalter',
+        number: 5,
+        prompt: 'Bekannte Schlachten im Mittelalter?',
+        text: 'Im Spätmittelalter kam es zu bekannten Schlachten wie Morgarten (1315), Sempach (1386) und Murten (1476).',
+        keywords: ['Morgarten (1315)', 'Sempach (1386)', 'Murten (1476)']
+      },
+
+      // 4. NEUZEIT
+      {
+        id: 16,
+        epoch: 'Neuzeit',
+        number: 1,
+        prompt: 'Beginn der Neuzeit und Erfindung um 1500?',
+        text: 'Um 1500 begann die Neuzeit und der Buchdruck verbreitete Schriften schnell.',
+        keywords: ['1500', 'Neuzeit', 'Buchdruck']
+      },
+      {
+        id: 17,
+        epoch: 'Neuzeit',
+        number: 2,
+        prompt: 'Ereignis im Jahr 1798 in der Schweiz?',
+        text: '1798 marschierten französische Truppen ein und ersetzten die alte Eidgenossenschaft durch die Helvetische Republik.',
+        keywords: ['1798', 'französische Truppen', 'Helvetische Republik']
+      },
+      {
+        id: 18,
+        epoch: 'Neuzeit',
+        number: 3,
+        prompt: 'Schaffung des modernen Schweizer Bundesstaates?',
+        text: '1848 wurde mit der Bundesverfassung der moderne Schweizer Bundesstaat geschaffen.',
+        keywords: ['1848', 'Bundesverfassung', 'Schweizer Bundesstaat']
+      },
+      {
+        id: 19,
+        epoch: 'Neuzeit',
+        number: 4,
+        prompt: 'Wirtschaftliche Entwicklung im 19. Jahrhundert?',
+        text: 'Im 19. Jahrhundert industrialisierte sich die Schweiz stark mit Fabriken und neuen Eisenbahnlinien.',
+        keywords: ['19. Jahrhundert', 'industrialisierte', 'Fabriken', 'Eisenbahnlinien']
+      },
+      {
+        id: 20,
+        epoch: 'Neuzeit',
+        number: 5,
+        prompt: 'Meilenstein im 20. Jahrhundert?',
+        text: '1971 wurde auf Bundesebene das Frauenstimm- und -wahlrecht eingeführt.',
+        keywords: ['1971', 'Frauenstimm- und -wahlrecht']
+      }
+    ];
+
+    const EPOCHS = ['Steinzeit', 'Römerzeit', 'Mittelalter', 'Neuzeit'];
+    const EPOCH_META = {
+      Steinzeit: {
+        icon: '🪨',
+        card: 'border-amber-200 bg-amber-50/60',
+        badge: 'bg-amber-100 text-amber-800'
+      },
+      Römerzeit: {
+        icon: '🏛️',
+        card: 'border-rose-200 bg-rose-50/60',
+        badge: 'bg-rose-100 text-rose-800'
+      },
+      Mittelalter: {
+        icon: '🏰',
+        card: 'border-indigo-200 bg-indigo-50/60',
+        badge: 'bg-indigo-100 text-indigo-800'
+      },
+      Neuzeit: {
+        icon: '🚂',
+        card: 'border-emerald-200 bg-emerald-50/60',
+        badge: 'bg-emerald-100 text-emerald-800'
+      }
+    };
+
+    const STORAGE_KEY = 'schweizer-geschichte-mastered-v1';
+    const QUIZ_SCORE_KEY = 'nmgHistoryScore:v2:20 wichtige Merksätze';
+
+    let currentTab = 'overview';
+    let currentFilter = 'Alle';
+    let clozeEnabled = false;
+    let flashcardFacts = [...FACTS_DATA];
+    let flashcardIndex = 0;
+    let quizFacts = [];
+    let quizIndex = 0;
+    let quizScore = 0;
+    let quizStreak = 0;
+    let quizBestStreak = 0;
+    let quizLocked = false;
+    let quizMistakes = [];
+
+    function loadMastered() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const validIds = new Set(FACTS_DATA.map((fact) => fact.id));
+        return new Set(Array.isArray(raw) ? raw.filter((id) => validIds.has(id)) : []);
+      } catch (error) {
+        console.warn('Gespeicherter Lernstand konnte nicht gelesen werden.', error);
+        return new Set();
+      }
+    }
+
+    let masteredIds = loadMastered();
+
+    function saveMastered() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([...masteredIds].sort((a, b) => a - b)));
+      } catch (error) {
+        console.warn('Lernstand konnte nicht gespeichert werden.', error);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeRegExp(value) {
+      return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function buildClozeText(fact) {
+      if (!clozeEnabled) return escapeHtml(fact.text);
+
+      const placeholders = [];
+      let output = fact.text;
+      [...fact.keywords]
+        .sort((a, b) => b.length - a.length)
+        .forEach((keyword) => {
+          const token = `@@CLOZE_${placeholders.length}@@`;
+          const regex = new RegExp(escapeRegExp(keyword), 'g');
+          if (regex.test(output)) {
+            output = output.replace(regex, token);
+            placeholders.push(keyword);
+          }
+        });
+
+      output = escapeHtml(output);
+      placeholders.forEach((keyword, index) => {
+        const token = `@@CLOZE_${index}@@`;
+        output = output.replaceAll(
+          token,
+          `<button type="button" class="cloze-word" aria-label="Verdeckten Begriff aufdecken">${escapeHtml(keyword)}</button>`
+        );
+      });
+      return output;
+    }
+
+    function countForEpoch(epoch) {
+      return FACTS_DATA.filter((fact) => fact.epoch === epoch).length;
+    }
+
+    function updateStaticCounts() {
+      const total = FACTS_DATA.length;
+      const allFilter = document.querySelector('[data-filter="Alle"]');
+      if (allFilter) allFilter.textContent = `Alle (${total})`;
+
+      EPOCHS.forEach((epoch) => {
+        const button = document.querySelector(`[data-filter="${epoch}"]`);
+        if (button) button.textContent = `${EPOCH_META[epoch].icon} ${epoch} (${countForEpoch(epoch)})`;
+      });
+
+      const select = document.getElementById('fc-epoch-select');
+      if (select) {
+        [...select.options].forEach((option) => {
+          if (option.value === 'Alle') {
+            option.textContent = `Alle Epochen (${total})`;
+          } else {
+            option.textContent = `${EPOCH_META[option.value].icon} ${option.value} (${countForEpoch(option.value)})`;
+          }
+        });
+      }
+    }
+
+    function updateProgress() {
+      const total = FACTS_DATA.length;
+      const learned = masteredIds.size;
+      const percent = total ? Math.round((learned / total) * 100) : 0;
+      document.getElementById('progress-text').textContent = `${learned} / ${total} gelernt`;
+      document.getElementById('progress-bar').style.width = `${percent}%`;
+    }
+
+    function renderOverview() {
+      const container = document.getElementById('overview-container');
+      const facts = currentFilter === 'Alle'
+        ? FACTS_DATA
+        : FACTS_DATA.filter((fact) => fact.epoch === currentFilter);
+
+      const epochsToRender = currentFilter === 'Alle' ? EPOCHS : [currentFilter];
+      container.innerHTML = epochsToRender.map((epoch) => {
+        const epochFacts = facts.filter((fact) => fact.epoch === epoch);
+        if (!epochFacts.length) return '';
+        const meta = EPOCH_META[epoch];
+
+        return `
+          <section class="space-y-3" aria-labelledby="epoch-${escapeHtml(epoch)}">
+            <div class="flex items-center gap-2 px-1">
+              <span class="text-xl" aria-hidden="true">${meta.icon}</span>
+              <h2 id="epoch-${escapeHtml(epoch)}" class="text-lg font-extrabold text-slate-900">${escapeHtml(epoch)}</h2>
+              <span class="text-xs font-bold text-slate-400">${epochFacts.length} Merksätze</span>
+            </div>
+            <div class="grid gap-3">
+              ${epochFacts.map((fact) => {
+                const learned = masteredIds.has(fact.id);
+                return `
+                  <article class="rounded-2xl border ${meta.card} p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-start gap-3 sm:gap-4">
+                      <div class="shrink-0 mt-0.5">
+                        <span class="inline-flex min-w-8 h-8 px-2 items-center justify-center rounded-lg text-xs font-extrabold ${meta.badge}">${fact.number}</span>
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm sm:text-base font-semibold leading-relaxed text-slate-800">${buildClozeText(fact)}</p>
+                        <p class="mt-2 text-xs text-slate-500 font-medium">${escapeHtml(fact.prompt)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        data-master-id="${fact.id}"
+                        class="master-toggle shrink-0 w-10 h-10 rounded-xl border transition-all flex items-center justify-center ${learned ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white/80 border-stone-200 text-slate-400 hover:text-emerald-700 hover:border-emerald-300'}"
+                        aria-pressed="${learned}"
+                        aria-label="${learned ? 'Als noch nicht gelernt markieren' : 'Als gelernt markieren'}"
+                        title="${learned ? 'Gelernt – klicken zum Entfernen' : 'Als gelernt markieren'}"
+                      >${learned ? '✓' : '○'}</button>
+                    </div>
+                  </article>
+                `;
+              }).join('')}
+            </div>
+          </section>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.master-toggle').forEach((button) => {
+        button.addEventListener('click', () => {
+          const id = Number(button.dataset.masterId);
+          if (masteredIds.has(id)) masteredIds.delete(id);
+          else masteredIds.add(id);
+          saveMastered();
+          updateProgress();
+          renderOverview();
+          renderFlashcard();
+        });
+      });
+
+      container.querySelectorAll('.cloze-word').forEach((button) => {
+        button.addEventListener('click', () => button.classList.add('revealed'));
+      });
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach((button) => {
+        const active = button.dataset.filter === filter;
+        button.setAttribute('aria-pressed', String(active));
+        button.classList.toggle('ring-2', active);
+        button.classList.toggle('ring-slate-800', active);
+        button.classList.toggle('ring-offset-1', active);
+
+        if (button.dataset.filter === 'Alle') {
+          button.classList.toggle('bg-slate-800', active);
+          button.classList.toggle('text-white', active);
+          button.classList.toggle('bg-stone-100', !active);
+          button.classList.toggle('text-slate-700', !active);
+          button.classList.toggle('border', !active);
+          button.classList.toggle('border-stone-200', !active);
+        }
+      });
+      renderOverview();
+    }
+
+    function setCloze(enabled) {
+      clozeEnabled = enabled;
+      const toggle = document.getElementById('toggle-cloze');
+      const knob = document.getElementById('toggle-cloze-knob');
+      toggle.setAttribute('aria-checked', String(enabled));
+      toggle.classList.toggle('bg-swissred', enabled);
+      toggle.classList.toggle('bg-stone-300', !enabled);
+      knob.classList.toggle('translate-x-5', enabled);
+      knob.classList.toggle('translate-x-0', !enabled);
+      document.getElementById('cloze-hint').classList.toggle('hidden', !enabled);
+      renderOverview();
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      const views = {
+        overview: document.getElementById('view-overview'),
+        flashcards: document.getElementById('view-flashcards'),
+        quiz: document.getElementById('view-quiz')
+      };
+
+      Object.entries(views).forEach(([name, view]) => {
+        view.classList.toggle('hidden', name !== tab);
+      });
+
+      document.querySelectorAll('.tab-btn').forEach((button) => {
+        const active = button.dataset.tab === tab;
+        button.classList.toggle('bg-swissred', active);
+        button.classList.toggle('text-white', active);
+        button.classList.toggle('shadow-sm', active);
+        button.classList.toggle('text-slate-600', !active);
+        button.classList.toggle('hover:bg-stone-100', !active);
+        button.setAttribute('aria-selected', String(active));
+      });
+
+      if (tab === 'flashcards') renderFlashcard();
+      if (tab === 'quiz' && !quizFacts.length) startQuiz();
+    }
+
+    function setFlashcardFacts(epoch) {
+      flashcardFacts = epoch === 'Alle'
+        ? [...FACTS_DATA]
+        : FACTS_DATA.filter((fact) => fact.epoch === epoch);
+      flashcardIndex = 0;
+      renderFlashcard();
+    }
+
+    function renderFlashcard() {
+      if (!flashcardFacts.length) return;
+      if (flashcardIndex >= flashcardFacts.length) flashcardIndex = 0;
+      if (flashcardIndex < 0) flashcardIndex = flashcardFacts.length - 1;
+
+      const fact = flashcardFacts[flashcardIndex];
+      const meta = EPOCH_META[fact.epoch];
+      const inner = document.getElementById('flashcard-inner');
+      inner.classList.remove('is-flipped');
+
+      document.getElementById('fc-counter').textContent = `Karte ${flashcardIndex + 1} / ${flashcardFacts.length}`;
+      document.getElementById('fc-front-badge').textContent = `${meta.icon} ${fact.epoch} · Fakt ${fact.number}`;
+      document.getElementById('fc-front-prompt').textContent = fact.prompt;
+      document.getElementById('fc-back-badge').textContent = `${meta.icon} ${fact.epoch} · Merksatz`;
+      document.getElementById('fc-back-sentence').textContent = fact.text;
+      document.getElementById('fc-mastered-pill').classList.toggle('hidden', !masteredIds.has(fact.id));
+    }
+
+    function flipFlashcard() {
+      document.getElementById('flashcard-inner').classList.toggle('is-flipped');
+    }
+
+    function moveFlashcard(step) {
+      if (!flashcardFacts.length) return;
+      flashcardIndex = (flashcardIndex + step + flashcardFacts.length) % flashcardFacts.length;
+      renderFlashcard();
+    }
+
+    function markCurrentFlashcard(learned) {
+      if (!flashcardFacts.length) return;
+      const id = flashcardFacts[flashcardIndex].id;
+      if (learned) masteredIds.add(id);
+      else masteredIds.delete(id);
+      saveMastered();
+      updateProgress();
+      renderOverview();
+      if (learned) moveFlashcard(1);
+      else renderFlashcard();
+    }
+
+    function shuffleArray(items) {
+      const output = [...items];
+      for (let i = output.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [output[i], output[j]] = [output[j], output[i]];
+      }
+      return output;
+    }
+
+    function loadQuizScore() {
+      try { return JSON.parse(localStorage.getItem(QUIZ_SCORE_KEY) || 'null'); } catch (_) { return null; }
+    }
+
+    function updateLastQuizScore() {
+      const el = document.getElementById('quiz-last-score');
+      if (!el) return;
+      const s = loadQuizScore();
+      el.textContent = s ? `Letztes Ergebnis: ${s.last}%` : 'Letztes Ergebnis: –';
+    }
+
+    function saveQuizScore(percent) {
+      try {
+        const prev = loadQuizScore() || {};
+        localStorage.setItem(QUIZ_SCORE_KEY, JSON.stringify({last: percent, best: Math.max(prev.best || 0, percent), at: Date.now()}));
+      } catch (_) {}
+      updateLastQuizScore();
+    }
+
+    function startQuiz(sourceFacts = FACTS_DATA) {
+      quizFacts = shuffleArray(sourceFacts);
+      quizIndex = 0;
+      quizScore = 0;
+      quizStreak = 0;
+      quizBestStreak = 0;
+      quizLocked = false;
+      quizMistakes = [];
+      updateLastQuizScore();
+      document.getElementById('quiz-active-panel').classList.remove('hidden');
+      document.getElementById('quiz-result-panel').classList.add('hidden');
+      renderQuizQuestion();
+    }
+
+    function resetQuizChoiceStyles() {
+      document.querySelectorAll('.quiz-choice-btn').forEach((button) => {
+        button.disabled = false;
+        button.classList.remove(
+          'border-emerald-500', 'bg-emerald-50', 'text-emerald-900',
+          'border-red-400', 'bg-red-50', 'text-red-900',
+          'opacity-60'
+        );
+      });
+    }
+
+    function renderQuizQuestion() {
+      if (quizIndex >= quizFacts.length) {
+        showQuizResult();
+        return;
+      }
+
+      quizLocked = false;
+      resetQuizChoiceStyles();
+      const fact = quizFacts[quizIndex];
+      document.getElementById('quiz-progress').textContent = `Frage ${quizIndex + 1} von ${quizFacts.length}`;
+      document.getElementById('quiz-score').textContent = `Punkte: ${quizScore}`;
+      document.getElementById('quiz-streak').textContent = `Serie: ${quizStreak}`;
+      document.getElementById('quiz-question-text').textContent = fact.text;
+      document.getElementById('quiz-feedback').classList.add('hidden');
+      document.getElementById('quiz-feedback-text').textContent = '';
+      document.getElementById('quiz-next-btn').textContent = quizIndex === quizFacts.length - 1 ? 'Ergebnis anzeigen →' : 'Nächste Frage →';
+    }
+
+    function answerQuiz(choice) {
+      if (quizLocked || quizIndex >= quizFacts.length) return;
+      quizLocked = true;
+      const fact = quizFacts[quizIndex];
+      const correct = choice === fact.epoch;
+
+      if (correct) {
+        quizScore += 1;
+        quizStreak += 1;
+        quizBestStreak = Math.max(quizBestStreak, quizStreak);
+      } else {
+        quizStreak = 0;
+        quizMistakes.push(fact);
+      }
+
+      document.getElementById('quiz-score').textContent = `Punkte: ${quizScore}`;
+      document.getElementById('quiz-streak').textContent = `Serie: ${quizStreak}`;
+
+      document.querySelectorAll('.quiz-choice-btn').forEach((button) => {
+        button.disabled = true;
+        if (button.dataset.choice === fact.epoch) {
+          button.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-900');
+        } else if (button.dataset.choice === choice && !correct) {
+          button.classList.add('border-red-400', 'bg-red-50', 'text-red-900', 'animate-shake');
+          window.setTimeout(() => button.classList.remove('animate-shake'), 400);
+        } else {
+          button.classList.add('opacity-60');
+        }
+      });
+
+      const feedback = document.getElementById('quiz-feedback');
+      const feedbackText = document.getElementById('quiz-feedback-text');
+      feedback.classList.remove('hidden', 'bg-emerald-50', 'border', 'border-emerald-200', 'text-emerald-900', 'bg-red-50', 'border-red-200', 'text-red-900');
+
+      if (correct) {
+        feedback.classList.add('bg-emerald-50', 'border', 'border-emerald-200', 'text-emerald-900');
+        feedbackText.textContent = `✓ Richtig – ${EPOCH_META[fact.epoch].icon} ${fact.epoch}`;
+      } else {
+        feedback.classList.add('bg-red-50', 'border', 'border-red-200', 'text-red-900');
+        feedbackText.textContent = `Nicht ganz. Richtig ist ${EPOCH_META[fact.epoch].icon} ${fact.epoch}.`;
+      }
+    }
+
+    function showQuizResult() {
+      document.getElementById('quiz-active-panel').classList.add('hidden');
+      document.getElementById('quiz-result-panel').classList.remove('hidden');
+      document.getElementById('quiz-final-score').textContent = `${quizScore} / ${quizFacts.length}`;
+      document.getElementById('quiz-final-streak').textContent = `${quizBestStreak} 🔥`;
+
+      const ratio = quizFacts.length ? quizScore / quizFacts.length : 0;
+      const percent = Math.round(ratio * 100);
+      document.getElementById('quiz-final-percent').textContent = `${percent}%`;
+      saveQuizScore(percent);
+      const retryBtn = document.getElementById('quiz-retry-mistakes-btn');
+      retryBtn.classList.toggle('hidden', quizMistakes.length === 0);
+      retryBtn.textContent = `🔁 Fehler wiederholen (${quizMistakes.length})`;
+      retryBtn.onclick = () => startQuiz([...quizMistakes]);
+      let message = 'Weiter üben – du bist auf dem richtigen Weg!';
+      if (ratio === 1) message = 'Perfekt – alle Epochen richtig zugeordnet!';
+      else if (ratio >= 0.8) message = 'Sehr stark – fast alles sitzt!';
+      else if (ratio >= 0.6) message = 'Gut gemacht – noch ein Durchgang lohnt sich.';
+      document.getElementById('quiz-final-message').textContent = message;
+    }
+
+    function openResetModal() {
+      document.getElementById('reset-modal').classList.remove('hidden');
+      document.getElementById('modal-cancel').focus();
+    }
+
+    function closeResetModal() {
+      document.getElementById('reset-modal').classList.add('hidden');
+    }
+
+    function resetProgress() {
+      masteredIds.clear();
+      saveMastered();
+      updateProgress();
+      renderOverview();
+      renderFlashcard();
+      closeResetModal();
+    }
+
+    // Navigation
+    document.querySelectorAll('.tab-btn').forEach((button) => {
+      button.addEventListener('click', () => switchTab(button.dataset.tab));
+    });
+
+    // Overview controls
+    document.querySelectorAll('.filter-btn').forEach((button) => {
+      button.addEventListener('click', () => setFilter(button.dataset.filter));
+    });
+    document.getElementById('toggle-cloze').addEventListener('click', () => setCloze(!clozeEnabled));
+    document.getElementById('btn-reveal-all-cloze').addEventListener('click', () => {
+      document.querySelectorAll('.cloze-word').forEach((button) => button.classList.add('revealed'));
+    });
+
+    // Flashcards
+    document.getElementById('fc-epoch-select').addEventListener('change', (event) => setFlashcardFacts(event.target.value));
+    document.getElementById('flashcard-wrapper').addEventListener('click', flipFlashcard);
+    document.getElementById('flashcard-wrapper').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        flipFlashcard();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        moveFlashcard(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        moveFlashcard(1);
+      }
+    });
+    document.getElementById('fc-prev').addEventListener('click', () => moveFlashcard(-1));
+    document.getElementById('fc-next').addEventListener('click', () => moveFlashcard(1));
+    document.getElementById('fc-practice').addEventListener('click', () => markCurrentFlashcard(false));
+    document.getElementById('fc-know').addEventListener('click', () => markCurrentFlashcard(true));
+    document.getElementById('fc-shuffle').addEventListener('click', () => {
+      flashcardFacts = shuffleArray(flashcardFacts);
+      flashcardIndex = 0;
+      renderFlashcard();
+    });
+
+    // Quiz
+    document.querySelectorAll('.quiz-choice-btn').forEach((button) => {
+      button.addEventListener('click', () => answerQuiz(button.dataset.choice));
+    });
+    document.getElementById('quiz-next-btn').addEventListener('click', () => {
+      if (!quizLocked) return;
+      quizIndex += 1;
+      renderQuizQuestion();
+    });
+    document.getElementById('quiz-restart-btn').addEventListener('click', startQuiz);
+
+    // Reset progress modal
+    document.getElementById('btn-reset-progress').addEventListener('click', openResetModal);
+    document.getElementById('modal-cancel').addEventListener('click', closeResetModal);
+    document.getElementById('modal-confirm').addEventListener('click', resetProgress);
+    document.getElementById('reset-modal').addEventListener('click', (event) => {
+      if (event.target.id === 'reset-modal') closeResetModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeResetModal();
+    });
+
+    // Initial render
+    updateStaticCounts();
+    updateProgress();
+    updateLastQuizScore();
+    setFilter('Alle');
+    setCloze(false);
+    setFlashcardFacts('Alle');
+  </script>
+</body>
+</html>
