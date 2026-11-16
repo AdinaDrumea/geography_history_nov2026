@@ -12,6 +12,7 @@ Upload these files to the repository root:
 - .nojekyll
 
 Latest update:
+- Bronzezeit and Eisenzeit added as chronological Posten-14 info cards between Steinzeit and Römerzeit in Geschichte > Info & Lernen.
 - Posten 14 period boundaries corrected in Geschichte > Zeiten zuordnen.
 - Posten 14 research-method facts added to the Geschichte learning area.
 - 20-Merksaetze app integrated into the main portal.
